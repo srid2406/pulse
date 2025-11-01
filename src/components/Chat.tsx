@@ -13,6 +13,19 @@ type Message = {
   avatar?: string | null;
 };
 
+const getDateLabel = (dateString: string): string => {
+  const now = new Date();
+  const msgDate = new Date(dateString);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDay = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
+  const diffTime = today.getTime() - msgDay.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return msgDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 export default function Chat() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -107,106 +120,114 @@ export default function Chat() {
           {messages.map((msg, index) => {
             const isMe = msg.user_id === user?.id;
             const isLast = index === messages.length - 1;
+            const showDateHeader =
+              index === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[index - 1].created_at);
 
             return (
-              <div
-                key={msg.id}
-                className={`relative flex items-start gap-3 ${
-                  isMe ? "justify-end" : "justify-start"
-                } group`}
-              >
-                {!isMe && (
-                  <div className="flex-shrink-0">
-                    <img
-                      src={
-                        msg.avatar || getFallbackAvatar(msg.name || msg.user_id)
-                      }
-                      alt={msg.name || "User"}
-                      className="w-10 h-10 rounded-full ring-2 ring-white shadow-sm"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.onerror = null;
-                        target.src = getFallbackAvatar(msg.name || msg.user_id);
-                      }}
-                    />
+              <div key={`group-${msg.id}`}>
+                {showDateHeader && (
+                  <div className="flex items-center my-6">
+                    <div className="flex-1 h-px bg-gray-300" />
+                    <span className="px-4 py-1 text-xs font-medium text-gray-500 bg-white rounded-full">
+                      {getDateLabel(msg.created_at)}
+                    </span>
+                    <div className="flex-1 h-px bg-gray-300" />
                   </div>
                 )}
-
                 <div
-                  className={`relative max-w-xs sm:max-w-md ${isMe ? "mr-12" : ""}`}
+                  className={`relative flex items-start gap-3 ${isMe ? "justify-end" : "justify-start"
+                    } group`}
                 >
-                  <div
-                    className={`px-4 py-3 rounded-2xl shadow-sm ${
-                      isMe
-                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md"
-                        : "bg-white text-gray-800 rounded-bl-md border border-gray-100"
-                    }`}
-                  >
-                    {!isMe && (
-                      <p className="text-xs font-medium text-blue-600 mb-2">
-                        {msg.name}
-                      </p>
-                    )}
-
-                    <p className="text-sm leading-relaxed break-words">
-                      {msg.content}
-                    </p>
-
-                    <div
-                      className={`text-[10px] mt-2 ${
-                        isMe ? "text-blue-100" : "text-gray-500"
-                      } text-right`}
-                    >
-                      {new Date(msg.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-
-                  {isMe && (
-                    <div className="absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <button
-                        onClick={() =>
-                          setMenuOpen(menuOpen === msg.id ? null : msg.id)
+                  {!isMe && (
+                    <div className="flex-shrink-0">
+                      <img
+                        src={
+                          msg.avatar || getFallbackAvatar(msg.name || msg.user_id)
                         }
-                        className="p-1.5 rounded-full hover:bg-white/20 text-gray-500 hover:text-gray-700 transition-all duration-200"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {menuOpen === msg.id && (
-                        <div
-                          className={`absolute ${
-                            isLast ? "bottom-8 right-0" : "top-8 right-0"
-                          } w-36 bg-white text-gray-800 rounded-xl shadow-lg z-20 border border-gray-200 overflow-hidden`}
-                        >
-                          <button
-                            onClick={() => {
-                              setEditingId(msg.id);
-                              setNewMessage(msg.content);
-                              setMenuOpen(null);
-                            }}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-sm transition-colors duration-150"
-                          >
-                            <Edit3 size={16} className="text-blue-500" />
-                            <span>Edit</span>
-                          </button>
-                          <div className="h-px bg-gray-100" />
-                          <button
-                            onClick={() => {
-                              deleteMessage(msg.id);
-                              setMenuOpen(null);
-                            }}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 w-full text-left text-sm text-red-600 transition-colors duration-150"
-                          >
-                            <Trash2 size={16} />
-                            <span>Delete</span>
-                          </button>
-                        </div>
-                      )}
+                        alt={msg.name || "User"}
+                        className="w-10 h-10 rounded-full ring-2 ring-white shadow-sm"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.onerror = null;
+                          target.src = getFallbackAvatar(msg.name || msg.user_id);
+                        }}
+                      />
                     </div>
                   )}
+
+                  <div
+                    className={`relative max-w-xs sm:max-w-md ${isMe ? "mr-12" : ""}`}
+                  >
+                    <div
+                      className={`px-4 py-3 rounded-2xl shadow-sm ${isMe
+                          ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md"
+                          : "bg-white text-gray-800 rounded-bl-md border border-gray-100"
+                        }`}
+                    >
+                      {!isMe && (
+                        <p className="text-xs font-medium text-blue-600 mb-2">
+                          {msg.name}
+                        </p>
+                      )}
+
+                      <p className="text-sm leading-relaxed break-words">
+                        {msg.content}
+                      </p>
+
+                      <div
+                        className={`text-[10px] mt-2 ${isMe ? "text-blue-100" : "text-gray-500"
+                          } text-right`}
+                      >
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+
+                    {isMe && (
+                      <div className="absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={() =>
+                            setMenuOpen(menuOpen === msg.id ? null : msg.id)
+                          }
+                          className="p-1.5 rounded-full hover:bg-white/20 text-gray-500 hover:text-gray-700 transition-all duration-200"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {menuOpen === msg.id && (
+                          <div
+                            className={`absolute ${isLast ? "bottom-8 right-0" : "top-8 right-0"
+                              } w-36 bg-white text-gray-800 rounded-xl shadow-lg z-20 border border-gray-200 overflow-hidden`}
+                          >
+                            <button
+                              onClick={() => {
+                                setEditingId(msg.id);
+                                setNewMessage(msg.content);
+                                setMenuOpen(null);
+                              }}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-sm transition-colors duration-150"
+                            >
+                              <Edit3 size={16} className="text-blue-500" />
+                              <span>Edit</span>
+                            </button>
+                            <div className="h-px bg-gray-100" />
+                            <button
+                              onClick={() => {
+                                deleteMessage(msg.id);
+                                setMenuOpen(null);
+                              }}
+                              className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 w-full text-left text-sm text-red-600 transition-colors duration-150"
+                            >
+                              <Trash2 size={16} />
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
