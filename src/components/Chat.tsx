@@ -17,13 +17,20 @@ const getDateLabel = (dateString: string): string => {
   const now = new Date();
   const msgDate = new Date(dateString);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const msgDay = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
+  const msgDay = new Date(
+    msgDate.getFullYear(),
+    msgDate.getMonth(),
+    msgDate.getDate(),
+  );
   const diffTime = today.getTime() - msgDay.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
 
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  return msgDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return msgDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
 };
 
 export default function Chat() {
@@ -121,7 +128,9 @@ export default function Chat() {
             const isMe = msg.user_id === user?.id;
             const isLast = index === messages.length - 1;
             const showDateHeader =
-              index === 0 || getDateLabel(msg.created_at) !== getDateLabel(messages[index - 1].created_at);
+              index === 0 ||
+              getDateLabel(msg.created_at) !==
+                getDateLabel(messages[index - 1].created_at);
 
             return (
               <div key={`group-${msg.id}`}>
@@ -135,21 +144,25 @@ export default function Chat() {
                   </div>
                 )}
                 <div
-                  className={`relative flex items-start gap-3 ${isMe ? "justify-end" : "justify-start"
-                    } group`}
+                  className={`relative flex items-start gap-3 ${
+                    isMe ? "justify-end" : "justify-start"
+                  } group`}
                 >
                   {!isMe && (
                     <div className="flex-shrink-0">
                       <img
                         src={
-                          msg.avatar || getFallbackAvatar(msg.name || msg.user_id)
+                          msg.avatar ||
+                          getFallbackAvatar(msg.name || msg.user_id)
                         }
                         alt={msg.name || "User"}
                         className="w-10 h-10 rounded-full ring-2 ring-white shadow-sm"
                         onError={(e) => {
                           const target = e.currentTarget;
                           target.onerror = null;
-                          target.src = getFallbackAvatar(msg.name || msg.user_id);
+                          target.src = getFallbackAvatar(
+                            msg.name || msg.user_id,
+                          );
                         }}
                       />
                     </div>
@@ -159,10 +172,11 @@ export default function Chat() {
                     className={`relative max-w-xs sm:max-w-md ${isMe ? "mr-12" : ""}`}
                   >
                     <div
-                      className={`px-4 py-3 rounded-2xl shadow-sm ${isMe
+                      className={`px-4 py-3 rounded-2xl shadow-sm ${
+                        isMe
                           ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md"
                           : "bg-white text-gray-800 rounded-bl-md border border-gray-100"
-                        }`}
+                      }`}
                     >
                       {!isMe && (
                         <p className="text-xs font-medium text-blue-600 mb-2">
@@ -175,8 +189,9 @@ export default function Chat() {
                       </p>
 
                       <div
-                        className={`text-[10px] mt-2 ${isMe ? "text-blue-100" : "text-gray-500"
-                          } text-right`}
+                        className={`text-[10px] mt-2 ${
+                          isMe ? "text-blue-100" : "text-gray-500"
+                        } text-right`}
                       >
                         {new Date(msg.created_at).toLocaleTimeString([], {
                           hour: "2-digit",
@@ -198,8 +213,9 @@ export default function Chat() {
 
                         {menuOpen === msg.id && (
                           <div
-                            className={`absolute ${isLast ? "bottom-8 right-0" : "top-8 right-0"
-                              } w-36 bg-white text-gray-800 rounded-xl shadow-lg z-20 border border-gray-200 overflow-hidden`}
+                            className={`absolute ${
+                              isLast ? "bottom-8 right-0" : "top-8 right-0"
+                            } w-36 bg-white text-gray-800 rounded-xl shadow-lg z-20 border border-gray-200 overflow-hidden`}
                           >
                             <button
                               onClick={() => {
