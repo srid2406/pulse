@@ -185,8 +185,8 @@ export default function Chat() {
                       className={`px-4 py-2.5 rounded-lg ${
                         isMe
                           ? darkMode
-                            ? "bg-white text-black"
-                            : "bg-black text-white"
+                            ? "bg-zinc-900 text-white border-zinc-800"
+                            : "bg-gray-100 text-gray-900 border-gray-200"
                           : darkMode
                             ? "bg-zinc-900 text-white border-zinc-800"
                             : "bg-gray-100 text-gray-900 border-gray-200"
