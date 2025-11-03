@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import {
   X,
   Save,
@@ -25,6 +26,7 @@ type MeetNote = {
 
 const MeetNotes = () => {
   const { user } = useAuth();
+  const { darkMode } = useTheme();
   const [notes, setNotes] = useState<MeetNote[]>([]);
   const [draft, setDraft] = useState<MeetNote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +35,323 @@ const MeetNotes = () => {
 
   useEffect(() => {
     fetchNotes();
+  }, []);
+
+  // Inject Vercel-style CSS for Tiptap editor
+  useEffect(() => {
+    const styleId = "tiptap-vercel-theme";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        /* Vercel Theme for Tiptap Editor */
+        .ProseMirror {
+          padding: 3rem 4rem !important;
+          min-height: 100%;
+          outline: none !important;
+          font-size: 15px;
+          line-height: 1.6;
+          color: #000;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        .dark .ProseMirror {
+          color: #ededed;
+        }
+
+        /* Placeholder */
+        .ProseMirror p.is-editor-empty:first-child::before {
+          color: #999;
+          content: attr(data-placeholder);
+          float: left;
+          height: 0;
+          pointer-events: none;
+        }
+
+        .dark .ProseMirror p.is-editor-empty:first-child::before {
+          color: #666;
+        }
+
+        /* Headings */
+        .ProseMirror h1 {
+          font-size: 2.5rem;
+          font-weight: 700;
+          line-height: 1.2;
+          margin-top: 2rem;
+          margin-bottom: 1rem;
+          color: #000;
+          letter-spacing: -0.03em;
+        }
+
+        .dark .ProseMirror h1 {
+          color: #fff;
+        }
+
+        .ProseMirror h1:first-child {
+          margin-top: 0;
+        }
+
+        .ProseMirror h2 {
+          font-size: 2rem;
+          font-weight: 600;
+          line-height: 1.3;
+          margin-top: 2rem;
+          margin-bottom: 0.75rem;
+          color: #000;
+          letter-spacing: -0.02em;
+          padding-top: 0.5rem;
+          border-top: 1px solid #eaeaea;
+        }
+
+        .dark .ProseMirror h2 {
+          color: #fff;
+          border-top-color: #333;
+        }
+
+        .ProseMirror h2:first-child {
+          margin-top: 0;
+          border-top: none;
+          padding-top: 0;
+        }
+
+        .ProseMirror h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          line-height: 1.4;
+          margin-top: 1.5rem;
+          margin-bottom: 0.5rem;
+          color: #000;
+          letter-spacing: -0.01em;
+        }
+
+        .dark .ProseMirror h3 {
+          color: #fff;
+        }
+
+        /* Paragraphs */
+        .ProseMirror p {
+          margin-top: 0.75rem;
+          margin-bottom: 0.75rem;
+          color: #525252;
+          line-height: 1.7;
+        }
+
+        .dark .ProseMirror p {
+          color: #a1a1a1;
+        }
+
+        /* Lists */
+        .ProseMirror ul,
+        .ProseMirror ol {
+          padding-left: 1.5rem;
+          margin-top: 0.75rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .ProseMirror ul {
+          list-style-type: disc;
+        }
+
+        .ProseMirror ol {
+          list-style-type: decimal;
+        }
+
+        .ProseMirror li {
+          margin-top: 0.375rem;
+          margin-bottom: 0.375rem;
+          color: #525252;
+          line-height: 1.6;
+        }
+
+        .dark .ProseMirror li {
+          color: #a1a1a1;
+        }
+
+        .ProseMirror li > p {
+          margin: 0;
+        }
+
+        .ProseMirror ul ul,
+        .ProseMirror ol ul {
+          list-style-type: circle;
+          margin-top: 0.25rem;
+        }
+
+        .ProseMirror ul ul ul,
+        .ProseMirror ol ul ul {
+          list-style-type: square;
+        }
+
+        /* Code blocks */
+        .ProseMirror pre {
+          background: #fafafa;
+          border: 1px solid #eaeaea;
+          border-radius: 8px;
+          padding: 1rem 1.25rem;
+          margin: 1.5rem 0;
+          overflow-x: auto;
+          font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+          font-size: 14px;
+          line-height: 1.6;
+        }
+
+        .dark .ProseMirror pre {
+          background: #111;
+          border-color: #333;
+        }
+
+        .ProseMirror pre code {
+          background: none;
+          padding: 0;
+          border-radius: 0;
+          color: inherit;
+          font-size: inherit;
+        }
+
+        .ProseMirror code {
+          background: #f4f4f4;
+          padding: 0.2em 0.4em;
+          border-radius: 4px;
+          font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+          font-size: 0.9em;
+          color: #eb5757;
+          font-weight: 500;
+        }
+
+        .dark .ProseMirror code {
+          background: #1a1a1a;
+          color: #ff6b6b;
+        }
+
+        /* Blockquotes */
+        .ProseMirror blockquote {
+          border-left: 3px solid #eaeaea;
+          padding-left: 1rem;
+          margin-left: 0;
+          margin-top: 1.5rem;
+          margin-bottom: 1.5rem;
+          color: #666;
+          font-style: italic;
+        }
+
+        .dark .ProseMirror blockquote {
+          border-left-color: #333;
+          color: #888;
+        }
+
+        .ProseMirror blockquote p {
+          color: inherit;
+        }
+
+        /* Links */
+        .ProseMirror a {
+          color: #0070f3;
+          text-decoration: none;
+          transition: color 0.2s ease;
+          cursor: pointer;
+        }
+
+        .ProseMirror a:hover {
+          color: #0051cc;
+          text-decoration: underline;
+        }
+
+        .dark .ProseMirror a {
+          color: #3291ff;
+        }
+
+        .dark .ProseMirror a:hover {
+          color: #0070f3;
+        }
+
+        /* Horizontal rule */
+        .ProseMirror hr {
+          border: none;
+          border-top: 1px solid #eaeaea;
+          margin: 2.5rem 0;
+        }
+
+        .dark .ProseMirror hr {
+          border-top-color: #333;
+        }
+
+        /* Strong/Bold */
+        .ProseMirror strong,
+        .ProseMirror b {
+          font-weight: 600;
+          color: #000;
+        }
+
+        .dark .ProseMirror strong,
+        .dark .ProseMirror b {
+          color: #fff;
+        }
+
+        /* Italic */
+        .ProseMirror em,
+        .ProseMirror i {
+          font-style: italic;
+        }
+
+        /* Strike */
+        .ProseMirror s,
+        .ProseMirror strike,
+        .ProseMirror del {
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
+
+        /* Selection */
+        .ProseMirror ::selection {
+          background: #0070f3;
+          color: white;
+        }
+
+        .dark .ProseMirror ::selection {
+          background: #3291ff;
+          color: white;
+        }
+
+        /* Focus */
+        .ProseMirror:focus {
+          outline: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .ProseMirror {
+            padding: 2rem 1.5rem !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .ProseMirror {
+            padding: 1.5rem 1rem !important;
+            font-size: 14px;
+          }
+
+          .ProseMirror h1 {
+            font-size: 2rem;
+          }
+
+          .ProseMirror h2 {
+            font-size: 1.5rem;
+          }
+
+          .ProseMirror h3 {
+            font-size: 1.25rem;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
   }, []);
 
   const fetchNotes = async () => {
@@ -133,29 +452,44 @@ const MeetNotes = () => {
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div
+      className={`relative w-full h-full overflow-hidden ${darkMode ? "bg-black" : "bg-white"}`}
+    >
       {isLoading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        <div
+          className={`absolute inset-0 ${darkMode ? "bg-black/80" : "bg-white/80"} flex items-center justify-center z-50`}
+        >
+          <div
+            className={`animate-spin rounded-full h-12 w-12 border-2 ${darkMode ? "border-white border-t-transparent" : "border-black border-t-transparent"}`}
+          ></div>
         </div>
       )}
 
-      <div className="p-8 overflow-y-auto h-full">
+      <div className="p-0 overflow-y-auto h-full">
         {notes.length === 0 && !isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <FileText size={24} className="text-slate-400" />
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div
+              className={`w-16 h-16 ${darkMode ? "bg-zinc-900" : "bg-gray-100"} rounded-full flex items-center justify-center mb-4`}
+            >
+              <FileText
+                size={24}
+                className={darkMode ? "text-zinc-600" : "text-gray-400"}
+              />
             </div>
-            <h3 className="text-lg font-medium text-slate-900 mb-2">
+            <h3
+              className={`text-lg font-semibold ${darkMode ? "text-white" : "text-gray-900"} mb-2`}
+            >
               No meeting notes yet
             </h3>
-            <p className="text-slate-600 mb-6 max-w-sm">
+            <p
+              className={`${darkMode ? "text-zinc-400" : "text-gray-600"} mb-6 max-w-sm text-sm`}
+            >
               Get started by creating your first meeting note to capture
               important discussions and decisions.
             </p>
             <button
               onClick={addRow}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+              className={`inline-flex items-center gap-2 px-4 py-2 ${darkMode ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-gray-800"} rounded-lg transition-colors duration-200 font-medium text-sm cursor-pointer`}
               disabled={isLoading}
             >
               <PlusIcon size={16} />
@@ -163,54 +497,60 @@ const MeetNotes = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-6">
             {notes.map((note) => (
               <div
                 key={note.id}
-                className="group relative bg-white rounded-xl shadow-sm border border-slate-200/60 hover:shadow-lg hover:border-slate-300/60 transition-all duration-200 cursor-pointer overflow-hidden"
+                className={`group relative ${darkMode ? "bg-zinc-900 border-zinc-800 hover:border-zinc-700" : "bg-white border-gray-200 hover:border-gray-300"} rounded-lg border transition-all duration-200 cursor-pointer overflow-hidden`}
                 onClick={() => {
                   setDraft({ ...note });
                   latestDraftRef.current = { ...note };
                 }}
               >
-                <div className="p-6 pb-4">
-                  <h3 className="font-semibold text-slate-900 text-lg mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors duration-200">
+                <div className="p-4">
+                  <h3
+                    className={`font-semibold ${darkMode ? "text-white group-hover:text-zinc-100" : "text-gray-900 group-hover:text-black"} text-base mb-3 line-clamp-2 transition-colors duration-200`}
+                  >
                     {note.name}
                   </h3>
 
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Calendar size={14} className="text-slate-400" />
+                    <div
+                      className={`flex items-center gap-2 text-xs ${darkMode ? "text-zinc-400" : "text-gray-600"}`}
+                    >
+                      <Calendar
+                        size={14}
+                        className={darkMode ? "text-zinc-500" : "text-gray-400"}
+                      />
                       <span>{formatDate(note.date)}</span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <User size={14} className="text-slate-400" />
+                    <div
+                      className={`flex items-center gap-2 text-xs ${darkMode ? "text-zinc-400" : "text-gray-600"}`}
+                    >
+                      <User
+                        size={14}
+                        className={darkMode ? "text-zinc-500" : "text-gray-400"}
+                      />
                       <span className="truncate">{note.created_by}</span>
                     </div>
                   </div>
                 </div>
-
-                <div className="px-6 pb-6">
-                  <div className="w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-200"></div>
-                </div>
-
-                <div className="absolute inset-0 bg-gradient-to-t from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {!draft && (
-        <div className="absolute bottom-8 right-8 z-30">
+      {!draft && notes.length > 0 && (
+        <div className="absolute bottom-6 right-6 z-30">
           <button
             onClick={addRow}
-            className="w-14 h-14 rounded-full shadow-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center group hover:scale-105 active:scale-95"
+            className={`w-12 h-12 rounded-full shadow-lg ${darkMode ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-gray-800"} transition-all duration-200 flex items-center justify-center group hover:scale-105 active:scale-95 cursor-pointer`}
             disabled={isLoading}
           >
             <PlusIcon
-              size={24}
+              size={20}
               className="group-hover:rotate-90 transition-transform duration-200"
             />
           </button>
@@ -218,8 +558,12 @@ const MeetNotes = () => {
       )}
 
       {draft && (
-        <div className="absolute top-0 left-0 right-0 bottom-0 z-20 flex flex-col bg-white w-full h-full">
-          <div className="flex justify-between items-center px-8 py-6 border-b border-slate-200/60 bg-white/95 backdrop-blur-sm">
+        <div
+          className={`absolute top-0 left-0 right-0 bottom-0 z-20 flex flex-col ${darkMode ? "bg-black dark" : "bg-white"} w-full h-full`}
+        >
+          <div
+            className={`flex justify-between items-center px-6 py-4 border-b ${darkMode ? "border-zinc-800 bg-black" : "border-gray-200 bg-white"}`}
+          >
             <div className="flex-1 mr-6">
               <input
                 value={draft.name}
@@ -230,17 +574,19 @@ const MeetNotes = () => {
                     name: e.target.value,
                   };
                 }}
-                className="text-2xl font-bold w-full border-none outline-none text-slate-900 bg-transparent placeholder-slate-400 focus:text-blue-600 transition-colors duration-200"
+                className={`text-xl font-semibold w-full border-none outline-none ${darkMode ? "text-white bg-transparent placeholder-zinc-600 focus:text-zinc-100" : "text-gray-900 bg-transparent placeholder-gray-400 focus:text-black"} transition-colors duration-200`}
                 placeholder="Meeting title..."
                 disabled={isLoading}
               />
-              <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
+              <div
+                className={`flex items-center gap-4 mt-2 text-xs ${darkMode ? "text-zinc-400" : "text-gray-600"}`}
+              >
                 <div className="flex items-center gap-1">
-                  <Calendar size={14} />
+                  <Calendar size={12} />
                   <span>{formatDate(draft.date)}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <User size={14} />
+                  <User size={12} />
                   <span>{draft.created_by}</span>
                 </div>
               </div>
@@ -249,7 +595,7 @@ const MeetNotes = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={saveNote}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium text-sm"
+                className={`flex items-center gap-2 px-4 py-2 ${darkMode ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-gray-800"} rounded-lg transition-colors duration-200 font-medium text-sm cursor-pointer`}
                 disabled={isLoading}
               >
                 <Save size={16} />
@@ -257,7 +603,7 @@ const MeetNotes = () => {
               </button>
               <button
                 onClick={() => deleteNote(draft.id)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium text-sm"
+                className={`flex items-center gap-2 px-4 py-2 ${darkMode ? "bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800" : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50"} border rounded-lg transition-colors duration-200 font-medium text-sm cursor-pointer`}
                 disabled={isLoading}
               >
                 <Trash2 size={16} />
@@ -265,7 +611,7 @@ const MeetNotes = () => {
               </button>
               <button
                 onClick={closeEditor}
-                className="flex items-center justify-center w-10 h-10 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all duration-200"
+                className={`flex items-center justify-center w-10 h-10 ${darkMode ? "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"} rounded-lg transition-all duration-200 cursor-pointer`}
                 disabled={isLoading}
               >
                 <X size={20} />

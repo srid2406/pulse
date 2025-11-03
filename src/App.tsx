@@ -11,6 +11,7 @@ import Docs from "./components/Docs";
 import Login from "./components/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CustomCalendar from "./components/Calendar";
+import { ThemeProvider } from "./context/ThemeContext";
 
 function App() {
   return (
@@ -21,9 +22,11 @@ function App() {
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
+            <ThemeProvider>
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            </ThemeProvider>
           }
         >
           <Route index element={<Home />} />

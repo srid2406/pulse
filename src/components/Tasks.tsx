@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { useTheme } from "../context/ThemeContext";
 import {
   DragDropContext,
   Droppable,
@@ -34,6 +35,7 @@ type ColumnTasks = {
 };
 
 const Tasks = () => {
+  const { darkMode } = useTheme();
   const [columns, setColumns] = useState<ColumnTasks>({
     todo: [],
     inprogress: [],
@@ -44,6 +46,24 @@ const Tasks = () => {
     { id: string; email: string; name?: string; avatar?: string | null }[]
   >([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Add scrollbar hide styles
+    const style = document.createElement("style");
+    style.textContent = `
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchAllowedUsers = async () => {
@@ -182,7 +202,6 @@ const Tasks = () => {
       return;
     }
 
-    // ✅ Update UI immediately
     setColumns((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((col) => {
@@ -229,46 +248,93 @@ const Tasks = () => {
     const isToday = date.toDateString() === now.toDateString();
 
     if (isToday)
-      return { text: "Today", color: "text-orange-600", bg: "bg-orange-50" };
+      return {
+        text: "Today",
+        color: darkMode ? "text-orange-400" : "text-orange-600",
+        bg: darkMode
+          ? "bg-orange-500/10 border-orange-500/20"
+          : "bg-orange-50 border-orange-200",
+      };
     if (isOverdue)
       return {
         text: date.toLocaleDateString(),
-        color: "text-red-600",
-        bg: "bg-red-50",
+        color: darkMode ? "text-red-400" : "text-red-600",
+        bg: darkMode
+          ? "bg-red-500/10 border-red-500/20"
+          : "bg-red-50 border-red-200",
       };
     return {
       text: date.toLocaleDateString(),
-      color: "text-gray-600",
-      bg: "bg-gray-50",
+      color: darkMode ? "text-zinc-400" : "text-zinc-600",
+      bg: darkMode
+        ? "bg-zinc-800 border-zinc-700"
+        : "bg-zinc-50 border-zinc-200",
     };
   };
 
   const getColumnColors = (colId: string) => {
-    switch (colId) {
-      case "todo":
-        return {
-          bg: "bg-slate-50",
-          accent: "border-t-blue-500",
-          header: "text-blue-700",
-        };
-      case "inprogress":
-        return {
-          bg: "bg-amber-50",
-          accent: "border-t-amber-500",
-          header: "text-amber-700",
-        };
-      case "completed":
-        return {
-          bg: "bg-emerald-50",
-          accent: "border-t-emerald-500",
-          header: "text-emerald-700",
-        };
-      default:
-        return {
-          bg: "bg-gray-50",
-          accent: "border-t-gray-500",
-          header: "text-gray-700",
-        };
+    if (darkMode) {
+      switch (colId) {
+        case "todo":
+          return {
+            bg: "bg-zinc-900",
+            border: "border-zinc-800",
+            header: "text-white",
+            badge: "bg-zinc-800 text-zinc-300",
+          };
+        case "inprogress":
+          return {
+            bg: "bg-zinc-900",
+            border: "border-zinc-800",
+            header: "text-white",
+            badge: "bg-blue-500/10 text-blue-400",
+          };
+        case "completed":
+          return {
+            bg: "bg-zinc-900",
+            border: "border-zinc-800",
+            header: "text-white",
+            badge: "bg-green-500/10 text-green-400",
+          };
+        default:
+          return {
+            bg: "bg-zinc-900",
+            border: "border-zinc-800",
+            header: "text-white",
+            badge: "bg-zinc-800 text-zinc-300",
+          };
+      }
+    } else {
+      switch (colId) {
+        case "todo":
+          return {
+            bg: "bg-white",
+            border: "border-gray-200",
+            header: "text-gray-900",
+            badge: "bg-gray-100 text-gray-600",
+          };
+        case "inprogress":
+          return {
+            bg: "bg-white",
+            border: "border-gray-200",
+            header: "text-gray-900",
+            badge: "bg-blue-50 text-blue-600",
+          };
+        case "completed":
+          return {
+            bg: "bg-white",
+            border: "border-gray-200",
+            header: "text-gray-900",
+            badge: "bg-green-50 text-green-600",
+          };
+        default:
+          return {
+            bg: "bg-white",
+            border: "border-gray-200",
+            header: "text-gray-900",
+            badge: "bg-gray-100 text-gray-600",
+          };
+      }
     }
   };
 
@@ -278,15 +344,19 @@ const Tasks = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 p-6">
+    <div className={`h-full p-6 ${darkMode ? "bg-black" : "bg-white"}`}>
       {loading && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        <div
+          className={`absolute inset-0 flex items-center justify-center z-50 ${darkMode ? "bg-black/80" : "bg-white/80"}`}
+        >
+          <div
+            className={`animate-spin rounded-full h-8 w-8 border-2 ${darkMode ? "border-white border-t-transparent" : "border-black border-t-transparent"}`}
+          ></div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto h-full">
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
             {Object.entries(columns).map(([colId, tasks]) => {
               const colors = getColumnColors(colId);
               return (
@@ -295,45 +365,43 @@ const Tasks = () => {
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`relative ${colors.bg} backdrop-blur-sm border border-white/20 rounded-2xl p-6 min-h-[600px] shadow-xl border-t-4 ${colors.accent} transition-all duration-200 ${
+                      className={`relative ${colors.bg} border ${colors.border} rounded-lg p-4 h-full flex flex-col ${
                         snapshot.isDraggingOver
-                          ? "ring-2 ring-blue-300 ring-opacity-75 bg-blue-50/50"
+                          ? darkMode
+                            ? "ring-1 ring-white bg-zinc-800"
+                            : "ring-1 ring-black bg-gray-50"
                           : ""
                       }`}
                     >
-                      {snapshot.isDraggingOver && (
-                        <div className="absolute inset-4 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50/30 backdrop-blur-sm z-10">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-bounce">
-                              Drop task here
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center mb-6">
+                      <div className="flex justify-between items-center mb-4">
                         <div>
                           <h2
-                            className={`text-xl font-bold ${colors.header} capitalize`}
+                            className={`text-sm font-semibold ${colors.header} capitalize`}
                           >
                             {colId === "inprogress" ? "In Progress" : colId}
                           </h2>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {tasks.length} tasks
+                          <p
+                            className={`text-xs mt-1 inline-flex items-center px-2 py-0.5 rounded-md ${colors.badge}`}
+                          >
+                            {tasks.length}{" "}
+                            {tasks.length === 1 ? "task" : "tasks"}
                           </p>
                         </div>
                         {colId === "todo" && (
                           <button
                             onClick={addTask}
-                            className="group relative p-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                            className={`p-2 rounded-md transition-all duration-200 ${
+                              darkMode
+                                ? "bg-white text-black hover:bg-zinc-200"
+                                : "bg-black text-white hover:bg-gray-800"
+                            }`}
                           >
-                            <Plus size={20} />
-                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-400 rounded-full animate-pulse"></div>
+                            <Plus size={16} />
                           </button>
                         )}
                       </div>
 
-                      <div className="space-y-4 relative z-0 max-h-[calc(100vh-320px)] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                      <div className="space-y-2 flex-1 overflow-y-auto scrollbar-hide pr-1">
                         {tasks.map((task, index) => {
                           const assignedUser = getUserById(task.assignedTo);
                           const { completed, total } = getCompletedSubtasks(
@@ -354,30 +422,32 @@ const Tasks = () => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`group relative bg-white rounded-xl border transition-all duration-200 ${
+                                  className={`group relative rounded-lg border ${
                                     snapshot.isDragging
-                                      ? "shadow-2xl ring-4 ring-blue-400/30 scale-105 rotate-2 z-50 border-blue-300"
-                                      : "border-gray-100 shadow-sm hover:shadow-md hover:scale-[1.01] hover:-translate-y-0.5 cursor-grab active:cursor-grabbing"
+                                      ? darkMode
+                                        ? "shadow-xl border-white bg-zinc-800 z-[9999]"
+                                        : "shadow-xl border-black bg-white z-[9999]"
+                                      : darkMode
+                                        ? "border-zinc-800 hover:border-zinc-700 cursor-grab active:cursor-grabbing bg-zinc-900"
+                                        : "border-gray-200 hover:border-gray-300 cursor-grab active:cursor-grabbing bg-white"
                                   }`}
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    zIndex: snapshot.isDragging ? 9999 : "auto",
+                                  }}
                                 >
                                   <div
-                                    className={`absolute top-2 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-300 rounded-full transition-all duration-200 ${
-                                      snapshot.isDragging
-                                        ? "bg-blue-400 w-10 opacity-80"
-                                        : "group-hover:bg-gray-400"
-                                    }`}
-                                  />
-
-                                  <div
-                                    className="p-4 pt-6 cursor-pointer"
-                                    onClick={(_e) => {
+                                    className="p-3 cursor-pointer"
+                                    onClick={() => {
                                       if (!snapshot.isDragging) {
                                         setActiveTask(task);
                                       }
                                     }}
                                   >
-                                    <div className="flex items-start justify-between mb-3">
-                                      <h3 className="font-semibold text-gray-900 text-sm leading-tight flex-1 mr-2">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <h3
+                                        className={`font-medium text-sm leading-tight flex-1 mr-2 ${darkMode ? "text-white" : "text-gray-900"}`}
+                                      >
                                         {task.title}
                                       </h3>
                                       <button
@@ -385,31 +455,43 @@ const Tasks = () => {
                                           e.stopPropagation();
                                           deleteTask(task.id);
                                         }}
-                                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+                                        className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all duration-200 ${
+                                          darkMode
+                                            ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                                            : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                        }`}
                                       >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={14} />
                                       </button>
                                     </div>
 
                                     {task.description && (
-                                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                                      <p
+                                        className={`text-xs mb-2 line-clamp-2 ${darkMode ? "text-zinc-400" : "text-gray-600"}`}
+                                      >
                                         {task.description}
                                       </p>
                                     )}
 
                                     {task.subtasks.length > 0 && (
-                                      <div className="mb-3">
+                                      <div className="mb-2">
                                         <div className="flex items-center justify-between mb-1">
-                                          <span className="text-xs text-gray-500">
+                                          <span
+                                            className={`text-xs ${darkMode ? "text-zinc-500" : "text-gray-500"}`}
+                                          >
                                             Progress
                                           </span>
-                                          <span className="text-xs font-medium text-gray-700">
+                                          <span
+                                            className={`text-xs font-medium ${darkMode ? "text-zinc-300" : "text-gray-700"}`}
+                                          >
                                             {completed}/{total}
                                           </span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div
+                                          className={`w-full rounded-full h-1 ${darkMode ? "bg-zinc-800" : "bg-gray-100"}`}
+                                        >
                                           <div
-                                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
+                                            className={`h-1 rounded-full transition-all duration-500 ${darkMode ? "bg-white" : "bg-black"}`}
                                             style={{
                                               width: `${total > 0 ? (completed / total) * 100 : 0}%`,
                                             }}
@@ -422,11 +504,11 @@ const Tasks = () => {
                                       <div className="flex items-center gap-2">
                                         {deadlineInfo && (
                                           <div
-                                            className={`flex items-center gap-1 px-2 py-1 rounded-md ${deadlineInfo.bg}`}
+                                            className={`flex items-center gap-1 px-2 py-1 rounded text-xs border ${deadlineInfo.bg}`}
                                           >
-                                            <Calendar size={12} />
+                                            <Calendar size={10} />
                                             <span
-                                              className={`text-xs font-medium ${deadlineInfo.color}`}
+                                              className={`font-medium ${deadlineInfo.color}`}
                                             >
                                               {deadlineInfo.text}
                                             </span>
@@ -435,22 +517,30 @@ const Tasks = () => {
                                       </div>
 
                                       {assignedUser && (
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5">
                                           {assignedUser.avatar ? (
                                             <img
                                               src={assignedUser.avatar}
                                               alt="avatar"
-                                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                                              className={`w-5 h-5 rounded-full border ${darkMode ? "border-zinc-700" : "border-gray-200"}`}
                                             />
                                           ) : (
-                                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center shadow-sm">
+                                            <div
+                                              className={`w-5 h-5 rounded-full flex items-center justify-center ${darkMode ? "bg-white" : "bg-black"}`}
+                                            >
                                               <User
-                                                size={12}
-                                                className="text-white"
+                                                size={10}
+                                                className={
+                                                  darkMode
+                                                    ? "text-black"
+                                                    : "text-white"
+                                                }
                                               />
                                             </div>
                                           )}
-                                          <span className="text-xs font-medium text-gray-600 max-w-20 truncate">
+                                          <span
+                                            className={`text-xs font-medium max-w-16 truncate ${darkMode ? "text-zinc-400" : "text-gray-600"}`}
+                                          >
                                             {assignedUser.name?.split(" ")[0] ||
                                               "Assigned"}
                                           </span>
@@ -458,10 +548,6 @@ const Tasks = () => {
                                       )}
                                     </div>
                                   </div>
-
-                                  {snapshot.isDragging && (
-                                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-xl pointer-events-none animate-pulse" />
-                                  )}
                                 </div>
                               )}
                             </Draggable>
@@ -478,19 +564,31 @@ const Tasks = () => {
         </DragDropContext>
 
         {activeTask && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="bg-white border-b border-gray-100 p-6 relative">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+            <div
+              className={`w-full max-w-2xl rounded-xl shadow-2xl relative overflow-hidden ${darkMode ? "bg-zinc-900 border border-zinc-800" : "bg-white border border-gray-200"}`}
+            >
+              <div
+                className={`border-b p-5 relative ${darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"}`}
+              >
                 <button
                   onClick={() => setActiveTask(null)}
-                  className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                  className={`absolute top-4 right-4 p-1.5 rounded-md transition-colors duration-200 ${
+                    darkMode
+                      ? "hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                      : "hover:bg-gray-100 text-gray-500 hover:text-gray-900"
+                  }`}
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
 
                 <input
                   type="text"
-                  className="w-full text-2xl font-bold bg-transparent border-none outline-none placeholder-gray-400 text-gray-900 pr-12 focus:placeholder-gray-300"
+                  className={`w-full text-xl font-semibold bg-transparent border-none outline-none pr-12 ${
+                    darkMode
+                      ? "placeholder-zinc-600 text-white"
+                      : "placeholder-gray-400 text-gray-900"
+                  }`}
                   value={activeTask.title}
                   onChange={(e) =>
                     setActiveTask({ ...activeTask, title: e.target.value })
@@ -499,13 +597,19 @@ const Tasks = () => {
                 />
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label
+                    className={`block text-xs font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
+                  >
                     Description
                   </label>
                   <textarea
-                    className="w-full p-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200"
+                    className={`w-full p-3 rounded-md border focus:outline-none focus:ring-2 resize-none transition-all duration-200 text-sm ${
+                      darkMode
+                        ? "bg-zinc-800 border-zinc-700 text-white placeholder-zinc-500 focus:ring-white focus:border-transparent"
+                        : "bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-black focus:border-transparent"
+                    }`}
                     rows={3}
                     value={activeTask.description}
                     onChange={(e) =>
@@ -518,74 +622,50 @@ const Tasks = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label
+                      className={`block text-xs font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
+                    >
                       Assigned To
                     </label>
-                    <div className="relative">
-                      <select
-                        className="w-full p-3 pr-10 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white transition-all duration-200"
-                        value={activeTask.assignedTo ?? ""}
-                        onChange={(e) =>
-                          setActiveTask({
-                            ...activeTask,
-                            assignedTo:
-                              e.target.value === "" ? null : e.target.value,
-                          })
-                        }
-                      >
-                        <option value="">Unassigned</option>
-                        {allowedUsers.map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name || u.email}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                        <svg
-                          className="w-5 h-5 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
-                    </div>
-                    {(() => {
-                      const assignedUser = getUserById(activeTask.assignedTo);
-                      return assignedUser ? (
-                        <div className="flex items-center gap-2 mt-2 p-2 bg-gray-50 rounded-lg">
-                          {assignedUser.avatar ? (
-                            <img
-                              src={assignedUser.avatar}
-                              alt="avatar"
-                              className="w-6 h-6 rounded-full"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
-                              <User size={12} className="text-white" />
-                            </div>
-                          )}
-                          <span className="text-sm text-gray-600">
-                            {assignedUser.name}
-                          </span>
-                        </div>
-                      ) : null;
-                    })()}
+                    <select
+                      className={`w-full p-2.5 rounded-md border focus:outline-none focus:ring-2 appearance-none transition-all duration-200 text-sm ${
+                        darkMode
+                          ? "bg-zinc-800 border-zinc-700 text-white focus:ring-white focus:border-transparent"
+                          : "bg-white border-gray-200 text-gray-900 focus:ring-black focus:border-transparent"
+                      }`}
+                      value={activeTask.assignedTo ?? ""}
+                      onChange={(e) =>
+                        setActiveTask({
+                          ...activeTask,
+                          assignedTo:
+                            e.target.value === "" ? null : e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Unassigned</option>
+                      {allowedUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.email}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label
+                      className={`block text-xs font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
+                    >
                       Deadline
                     </label>
                     <input
                       type="date"
-                      className="w-full p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className={`w-full p-2.5 rounded-md border focus:outline-none focus:ring-2 transition-all duration-200 text-sm ${
+                        darkMode
+                          ? "bg-zinc-800 border-zinc-700 text-white focus:ring-white focus:border-transparent [color-scheme:dark]"
+                          : "bg-white border-gray-200 text-gray-900 focus:ring-black focus:border-transparent [color-scheme:light]"
+                      }`}
                       value={activeTask.deadline || ""}
                       onChange={(e) =>
                         setActiveTask({
@@ -598,16 +678,22 @@ const Tasks = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  <label
+                    className={`block text-xs font-semibold mb-2 ${darkMode ? "text-white" : "text-gray-900"}`}
+                  >
                     Subtasks (
                     {activeTask.subtasks?.filter((st) => st.done).length || 0}/
                     {activeTask.subtasks?.length || 0})
                   </label>
-                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
                     {activeTask.subtasks?.map((st, i) => (
                       <div
                         key={st.id}
-                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group hover:bg-gray-100 transition-colors duration-200"
+                        className={`flex items-center gap-2 p-2.5 rounded-md group transition-colors duration-200 ${
+                          darkMode
+                            ? "bg-zinc-800 hover:bg-zinc-700"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
                       >
                         <button
                           onClick={() => {
@@ -618,14 +704,26 @@ const Tasks = () => {
                           className="flex-shrink-0"
                         >
                           {st.done ? (
-                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            <CheckCircle2
+                              className={`w-4 h-4 ${darkMode ? "text-green-400" : "text-green-600"}`}
+                            />
                           ) : (
-                            <Circle className="w-5 h-5 text-gray-400 hover:text-green-500 transition-colors duration-200" />
+                            <Circle
+                              className={`w-4 h-4 transition-colors duration-200 ${
+                                darkMode
+                                  ? "text-zinc-600 hover:text-zinc-300"
+                                  : "text-gray-400 hover:text-gray-900"
+                              }`}
+                            />
                           )}
                         </button>
                         <input
                           type="text"
-                          className="flex-1 p-2 bg-transparent border-none outline-none text-gray-800 placeholder-gray-400"
+                          className={`flex-1 p-1.5 bg-transparent border-none outline-none text-sm ${
+                            darkMode
+                              ? "text-white placeholder-zinc-600"
+                              : "text-gray-900 placeholder-gray-400"
+                          }`}
                           value={st.title}
                           onChange={(e) => {
                             const newSubs = [...activeTask.subtasks];
@@ -641,9 +739,13 @@ const Tasks = () => {
                             );
                             setActiveTask({ ...activeTask, subtasks: newSubs });
                           }}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-200"
+                          className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all duration-200 ${
+                            darkMode
+                              ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
+                              : "text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          }`}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     ))}
@@ -658,23 +760,37 @@ const Tasks = () => {
                         ],
                       })
                     }
-                    className="w-full mt-3 p-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-all duration-200 flex items-center justify-center gap-2"
+                    className={`w-full mt-2 p-2.5 rounded-md border-2 border-dashed transition-all duration-200 flex items-center justify-center gap-2 text-sm ${
+                      darkMode
+                        ? "border-zinc-700 text-zinc-400 hover:border-white hover:text-white"
+                        : "border-gray-200 text-gray-500 hover:border-black hover:text-black"
+                    }`}
                   >
-                    <Plus size={16} />
+                    <Plus size={14} />
                     Add subtask
                   </button>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <div
+                  className={`flex justify-end gap-2 pt-4 border-t ${darkMode ? "border-zinc-800" : "border-gray-200"}`}
+                >
                   <button
                     onClick={() => setActiveTask(null)}
-                    className="px-6 py-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition-all duration-200 font-medium"
+                    className={`px-4 py-2 rounded-md border transition-all duration-200 font-medium text-sm ${
+                      darkMode
+                        ? "border-zinc-700 text-white hover:bg-zinc-800"
+                        : "border-gray-200 text-gray-900 hover:bg-gray-50"
+                    }`}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={saveTask}
-                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 font-medium"
+                    className={`px-4 py-2 rounded-md transition-all duration-200 font-medium text-sm ${
+                      darkMode
+                        ? "bg-white text-black hover:bg-zinc-200"
+                        : "bg-black text-white hover:bg-gray-800"
+                    }`}
                   >
                     Save Task
                   </button>

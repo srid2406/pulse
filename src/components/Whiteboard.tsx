@@ -3,28 +3,22 @@ import { Excalidraw, exportToBlob } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
-import {
-  Trash2,
-  Save,
-  Loader2,
-  Moon,
-  Sun,
-  Settings,
-  Image,
-} from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
+import { Trash2, Save, Loader2, Settings, Image } from "lucide-react";
 import SavedToast from "./SavedToast";
 
 const Whiteboard = () => {
   const { user, loading: authLoading } = useAuth();
+  const { darkMode } = useTheme();
   const [initialData, setInitialData] = useState<{
     elements: any[];
+    appState?: any;
     files: Record<string, any>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [resetCounter, setResetCounter] = useState(0);
   const [savedKey, setSavedKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [showControls, setShowControls] = useState(false);
 
   const USER_EMAIL = user?.email;
@@ -64,28 +58,49 @@ const Whiteboard = () => {
           .eq("user_email", USER_EMAIL)
           .maybeSingle();
 
-        let scene = { elements: [], files: {} };
+        let scene = {
+          elements: [],
+          appState: {
+            theme: darkMode ? "dark" : "light",
+          },
+          files: {},
+        };
 
         if (!existing) {
           await supabase
             .from("whiteboards")
             .insert([{ user_email: USER_EMAIL, data: scene }]);
         } else if (existing.data && Object.keys(existing.data).length > 0) {
-          scene = existing.data;
+          scene = {
+            ...existing.data,
+            appState: {
+              ...existing.data.appState,
+              theme: darkMode ? "dark" : "light",
+            },
+          };
         }
 
         setInitialData(scene);
-        latestSceneRef.current = scene;
+        latestSceneRef.current = {
+          elements: scene.elements,
+          files: scene.files,
+        };
       } catch (err) {
         console.error("Error loading whiteboard:", err);
-        setInitialData({ elements: [], files: {} });
+        setInitialData({
+          elements: [],
+          appState: {
+            theme: darkMode ? "dark" : "light",
+          },
+          files: {},
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchOrCreate();
-  }, [USER_EMAIL]);
+  }, [USER_EMAIL, darkMode]);
 
   const handleChange = (elements: any, _appState: any, files: any) => {
     latestSceneRef.current = { elements, files };
@@ -121,8 +136,7 @@ const Whiteboard = () => {
         elements: latestSceneRef.current.elements,
         appState: {
           exportBackground: true,
-          exportWithDarkMode: false,
-          viewBackgroundColor: "#ffffff",
+          exportWithDarkMode: darkMode,
         },
         files: latestSceneRef.current.files,
         getDimensions: () => ({ width: 1920, height: 1080, scale: 2 }),
@@ -202,16 +216,24 @@ const Whiteboard = () => {
   }, [USER_EMAIL]);
 
   const handleReset = async () => {
-    const emptyScene = { elements: [], files: {} };
+    const emptyScene = {
+      elements: [],
+      appState: {
+        theme: darkMode ? "dark" : "light",
+      },
+      files: {},
+    };
     setInitialData(emptyScene);
     setResetCounter((prev) => prev + 1);
-    latestSceneRef.current = emptyScene;
+    latestSceneRef.current = { elements: [], files: {} };
 
     if (USER_EMAIL) {
       try {
         const { error } = await supabase
           .from("whiteboards")
-          .upsert([{ user_email: USER_EMAIL, data: emptyScene }]);
+          .upsert([
+            { user_email: USER_EMAIL, data: { elements: [], files: {} } },
+          ]);
         if (error) console.error("Error resetting whiteboard:", error);
       } catch (err) {
         console.error("Reset failed:", err);
@@ -221,44 +243,52 @@ const Whiteboard = () => {
 
   if (authLoading || loading || !initialData) {
     return (
-      <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      <div
+        className={`absolute inset-0 flex items-center justify-center z-50 ${darkMode ? "bg-black/80" : "bg-white/80"}`}
+      >
+        <div
+          className={`animate-spin rounded-full h-12 w-12 border-2 ${darkMode ? "border-white border-t-transparent" : "border-black border-t-transparent"}`}
+        ></div>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      <div className="absolute right-8 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center">
+    <div
+      className={`w-full h-full relative overflow-hidden ${darkMode ? "bg-black" : "bg-white"}`}
+    >
+      <div className="absolute right-6 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center">
         <button
           onClick={() => setShowControls(!showControls)}
-          className={`relative flex items-center justify-center w-10 h-10 rounded-full backdrop-blur-xl border shadow-xl transition-all duration-300 hover:scale-110 ${
+          className={`relative flex items-center justify-center w-11 h-11 rounded-full border shadow-lg transition-all duration-300 hover:scale-105 ${
             showControls
               ? darkMode
-                ? "bg-violet-500/20 border-violet-400/40 text-violet-300 shadow-violet-500/30"
-                : "bg-violet-100/80 border-violet-200/60 text-violet-600 shadow-violet-300/30"
+                ? "bg-white text-black border-zinc-300"
+                : "bg-black text-white border-gray-800"
               : darkMode
-                ? "bg-slate-800/90 border-slate-700/60 text-slate-300 hover:text-slate-100"
-                : "bg-white/90 border-gray-200/60 text-gray-600 hover:text-gray-800"
+                ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-zinc-100"
+                : "bg-white border-gray-200 text-gray-700 hover:text-gray-900"
           }`}
         >
           <Settings
-            className={`w-6 h-6 transition-transform duration-500 ${showControls ? "rotate-180" : ""}`}
+            className={`w-5 h-5 transition-transform duration-500 ${showControls ? "rotate-180" : ""}`}
           />
         </button>
 
         {showControls &&
           (() => {
-            const radius = 60;
+            const radius = 70;
             const buttons = [
               {
                 onClick: saveToDB,
                 disabled: isSaving,
                 className: isSaving
-                  ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
+                  ? darkMode
+                    ? "bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed"
+                    : "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
                   : darkMode
-                    ? "bg-emerald-300/10 border-emerald-200/30 text-emerald-200 hover:bg-emerald-200/20 shadow-emerald-300/20"
-                    : "bg-emerald-50 border-emerald-100 text-emerald-500 hover:bg-emerald-100 shadow-emerald-200/40",
+                    ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
+                    : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50",
                 title: "Save",
                 icon: isSaving ? (
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
@@ -271,8 +301,8 @@ const Whiteboard = () => {
                 onClick: handleReset,
                 disabled: false,
                 className: darkMode
-                  ? "bg-rose-300/10 border-rose-200/30 text-rose-200 hover:bg-rose-200/20 shadow-rose-300/20"
-                  : "bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100 shadow-rose-200/40",
+                  ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
+                  : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50",
                 title: "Clear",
                 icon: (
                   <Trash2 className="w-5 h-5 mx-auto transition-transform duration-200 hover:scale-110" />
@@ -280,34 +310,22 @@ const Whiteboard = () => {
                 duration: 300,
               },
               {
-                onClick: () => setDarkMode(!darkMode),
-                disabled: false,
-                className: darkMode
-                  ? "bg-amber-300/10 border-amber-200/30 text-amber-200 hover:bg-amber-200/20 shadow-amber-300/20"
-                  : "bg-indigo-50 border-indigo-100 text-indigo-500 hover:bg-indigo-100 shadow-indigo-200/40",
-                title: darkMode ? "Light Mode" : "Dark Mode",
-                icon: darkMode ? (
-                  <Sun className="w-5 h-5 mx-auto transition-transform duration-200 hover:rotate-45" />
-                ) : (
-                  <Moon className="w-5 h-5 mx-auto transition-transform duration-200 hover:-rotate-12" />
-                ),
-                duration: 400,
-              },
-              {
                 onClick: handleExportToPNG,
                 disabled: isSaving,
                 className: isSaving
-                  ? "bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed"
+                  ? darkMode
+                    ? "bg-zinc-900 border-zinc-800 text-zinc-600 cursor-not-allowed"
+                    : "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
                   : darkMode
-                    ? "bg-cyan-300/10 border-cyan-200/30 text-cyan-200 hover:bg-cyan-200/20 shadow-cyan-300/20"
-                    : "bg-cyan-50 border-cyan-100 text-cyan-500 hover:bg-cyan-100 shadow-cyan-200/40",
+                    ? "bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
+                    : "bg-white border-gray-200 text-gray-900 hover:bg-gray-50",
                 title: "Export as PNG",
                 icon: isSaving ? (
                   <Loader2 className="w-5 h-5 animate-spin mx-auto" />
                 ) : (
                   <Image className="w-5 h-5 mx-auto transition-transform duration-200 hover:scale-110" />
                 ),
-                duration: 500,
+                duration: 400,
               },
             ];
 
@@ -324,7 +342,7 @@ const Whiteboard = () => {
                   key={button.title}
                   onClick={button.onClick}
                   disabled={button.disabled}
-                  className={`absolute w-12 h-12 rounded-full backdrop-blur-xl border transition-all duration-300 transform hover:scale-110 shadow-lg animate-in fade-in-0 zoom-in-95 duration-${button.duration} ${button.className}`}
+                  className={`absolute w-11 h-11 rounded-full border transition-all duration-300 transform hover:scale-110 shadow-lg animate-in fade-in-0 zoom-in-95 duration-${button.duration} ${button.className}`}
                   style={{
                     left: `calc(50% + ${x}px)`,
                     top: `calc(50% + ${y}px)`,

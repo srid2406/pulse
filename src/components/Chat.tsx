@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { getFallbackAvatar } from "../utils/avatar";
 import { MoreVertical, Edit3, Trash2 } from "lucide-react";
 
@@ -35,6 +36,7 @@ const getDateLabel = (dateString: string): string => {
 
 export default function Chat() {
   const { user } = useAuth();
+  const { darkMode } = useTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -122,7 +124,9 @@ export default function Chat() {
 
   return (
     <div className="w-full h-full">
-      <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div
+        className={`flex flex-col h-full ${darkMode ? "bg-black" : "bg-white"}`}
+      >
         <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-hide">
           {messages.map((msg, index) => {
             const isMe = msg.user_id === user?.id;
@@ -136,11 +140,17 @@ export default function Chat() {
               <div key={`group-${msg.id}`}>
                 {showDateHeader && (
                   <div className="flex items-center my-6">
-                    <div className="flex-1 h-px bg-gray-300" />
-                    <span className="px-4 py-1 text-xs font-medium text-gray-500 bg-white rounded-full">
+                    <div
+                      className={`flex-1 h-px ${darkMode ? "bg-zinc-800" : "bg-gray-200"}`}
+                    />
+                    <span
+                      className={`px-3 py-1 text-xs font-medium ${darkMode ? "text-zinc-400 bg-zinc-900 border-zinc-800" : "text-gray-500 bg-gray-50 border-gray-200"} rounded-full border`}
+                    >
                       {getDateLabel(msg.created_at)}
                     </span>
-                    <div className="flex-1 h-px bg-gray-300" />
+                    <div
+                      className={`flex-1 h-px ${darkMode ? "bg-zinc-800" : "bg-gray-200"}`}
+                    />
                   </div>
                 )}
                 <div
@@ -156,7 +166,7 @@ export default function Chat() {
                           getFallbackAvatar(msg.name || msg.user_id)
                         }
                         alt={msg.name || "User"}
-                        className="w-10 h-10 rounded-full ring-2 ring-white shadow-sm"
+                        className={`w-9 h-9 rounded-full border ${darkMode ? "border-zinc-800" : "border-gray-200"}`}
                         onError={(e) => {
                           const target = e.currentTarget;
                           target.onerror = null;
@@ -172,14 +182,20 @@ export default function Chat() {
                     className={`relative max-w-xs sm:max-w-md ${isMe ? "mr-12" : ""}`}
                   >
                     <div
-                      className={`px-4 py-3 rounded-2xl shadow-sm ${
+                      className={`px-4 py-2.5 rounded-lg ${
                         isMe
-                          ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md"
-                          : "bg-white text-gray-800 rounded-bl-md border border-gray-100"
-                      }`}
+                          ? darkMode
+                            ? "bg-white text-black"
+                            : "bg-black text-white"
+                          : darkMode
+                            ? "bg-zinc-900 text-white border-zinc-800"
+                            : "bg-gray-100 text-gray-900 border-gray-200"
+                      } ${!isMe ? "border" : ""}`}
                     >
                       {!isMe && (
-                        <p className="text-xs font-medium text-blue-600 mb-2">
+                        <p
+                          className={`text-xs font-medium ${darkMode ? "text-zinc-400" : "text-gray-600"} mb-1.5`}
+                        >
                           {msg.name}
                         </p>
                       )}
@@ -189,8 +205,14 @@ export default function Chat() {
                       </p>
 
                       <div
-                        className={`text-[10px] mt-2 ${
-                          isMe ? "text-blue-100" : "text-gray-500"
+                        className={`text-[10px] mt-1.5 ${
+                          isMe
+                            ? darkMode
+                              ? "text-gray-600"
+                              : "text-gray-400"
+                            : darkMode
+                              ? "text-zinc-500"
+                              : "text-gray-500"
                         } text-right`}
                       >
                         {new Date(msg.created_at).toLocaleTimeString([], {
@@ -206,7 +228,7 @@ export default function Chat() {
                           onClick={() =>
                             setMenuOpen(menuOpen === msg.id ? null : msg.id)
                           }
-                          className="p-1.5 rounded-full hover:bg-white/20 text-gray-500 hover:text-gray-700 transition-all duration-200"
+                          className={`p-1.5 rounded ${darkMode ? "hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"} transition-colors cursor-pointer`}
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
@@ -215,7 +237,7 @@ export default function Chat() {
                           <div
                             className={`absolute ${
                               isLast ? "bottom-8 right-0" : "top-8 right-0"
-                            } w-36 bg-white text-gray-800 rounded-xl shadow-lg z-20 border border-gray-200 overflow-hidden`}
+                            } w-32 ${darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"} rounded-lg shadow-lg z-20 border overflow-hidden`}
                           >
                             <button
                               onClick={() => {
@@ -223,20 +245,27 @@ export default function Chat() {
                                 setNewMessage(msg.content);
                                 setMenuOpen(null);
                               }}
-                              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 w-full text-left text-sm transition-colors duration-150"
+                              className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
                             >
-                              <Edit3 size={16} className="text-blue-500" />
+                              <Edit3
+                                size={14}
+                                className={
+                                  darkMode ? "text-zinc-400" : "text-gray-700"
+                                }
+                              />
                               <span>Edit</span>
                             </button>
-                            <div className="h-px bg-gray-100" />
+                            <div
+                              className={`h-px ${darkMode ? "bg-zinc-800" : "bg-gray-200"}`}
+                            />
                             <button
                               onClick={() => {
                                 deleteMessage(msg.id);
                                 setMenuOpen(null);
                               }}
-                              className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 w-full text-left text-sm text-red-600 transition-colors duration-150"
+                              className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={14} />
                               <span>Delete</span>
                             </button>
                           </div>
@@ -251,12 +280,14 @@ export default function Chat() {
           <div ref={bottomRef} />
         </div>
 
-        <div className="border-t border-white/50 bg-white/40 backdrop-blur-sm px-4 py-4">
+        <div
+          className={`border-t ${darkMode ? "border-zinc-800 bg-black" : "border-gray-200 bg-white"} px-4 py-4`}
+        >
           <form onSubmit={sendMessage} className="flex items-center gap-3">
             <div className="flex-1 relative">
               <input
                 type="text"
-                className="w-full bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl px-5 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 text-sm placeholder:text-gray-500 transition-all duration-200"
+                className={`w-full ${darkMode ? "bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 focus:ring-white focus:border-white" : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-500 focus:ring-black focus:border-black"} border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 text-sm transition-all`}
                 placeholder={
                   editingId ? "Edit your message..." : "Type your message..."
                 }
@@ -267,7 +298,7 @@ export default function Chat() {
             <button
               type="submit"
               disabled={!newMessage.trim()}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-2xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium text-sm shadow-sm hover:shadow-md"
+              className={`${darkMode ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-gray-800"} px-5 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm cursor-pointer`}
             >
               {editingId ? "Update" : "Send"}
             </button>
