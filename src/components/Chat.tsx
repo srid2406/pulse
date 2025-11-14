@@ -3,7 +3,18 @@ import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { getFallbackAvatar } from "../utils/avatar";
-import { MoreVertical, Edit3, Trash2 } from "lucide-react";
+import { MoreVertical, Edit3, Trash2, Smile } from "lucide-react";
+import EmojiPicker, {
+  type EmojiClickData,
+  EmojiStyle,
+  Theme,
+} from "emoji-picker-react";
+
+type Reaction = {
+  emoji: string;
+  user_ids: string[];
+  count: number;
+};
 
 type Message = {
   id: string;
@@ -12,6 +23,7 @@ type Message = {
   created_at: string;
   name?: string;
   avatar?: string | null;
+  reactions?: Record<string, string[]>;
 };
 
 const getDateLabel = (dateString: string): string => {
@@ -41,7 +53,10 @@ export default function Chat() {
   const [newMessage, setNewMessage] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiButtonRef = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -87,8 +102,50 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      const isNewMessage =
+        messages.length === 1 ||
+        new Date(lastMessage.created_at).getTime() >
+          new Date(messages[messages.length - 2]?.created_at || 0).getTime();
+
+      if (isNewMessage) {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+  }, [messages.length]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(target)) {
+        const clickedButton = Object.values(emojiButtonRef.current).some(
+          (button) => button && button.contains(target),
+        );
+
+        if (!clickedButton) {
+          setEmojiPickerOpen(null);
+        }
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEmojiPickerOpen(null);
+      }
+    };
+
+    if (emojiPickerOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [emojiPickerOpen]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +165,7 @@ export default function Chat() {
         content: newMessage,
         name: user.name || user.email,
         avatar: user.avatar || null,
+        reactions: {},
       });
       setNewMessage("");
     }
@@ -120,6 +178,66 @@ export default function Chat() {
       .delete()
       .eq("id", id)
       .eq("user_id", user.id);
+  };
+
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    const message = messages.find((m) => m.id === messageId);
+    if (!message) return;
+
+    const reactions = message.reactions || {};
+    const currentReactors = reactions[emoji] || [];
+
+    let updatedReactions;
+    if (currentReactors.includes(user.id)) {
+      const newReactors = currentReactors.filter((id) => id !== user.id);
+      if (newReactors.length === 0) {
+        const { [emoji]: _, ...rest } = reactions;
+        updatedReactions = rest;
+      } else {
+        updatedReactions = { ...reactions, [emoji]: newReactors };
+      }
+    } else {
+      updatedReactions = {
+        ...reactions,
+        [emoji]: [...currentReactors, user.id],
+      };
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .update({ reactions: updatedReactions })
+      .eq("id", messageId)
+      .select();
+
+    if (error) {
+      console.error("Error updating reaction:", error);
+      alert("Failed to add reaction. Please check your permissions.");
+    } else {
+      console.log("Reaction updated successfully:", data);
+    }
+  };
+
+  const handleEmojiClick = (messageId: string, emojiData: EmojiClickData) => {
+    toggleReaction(messageId, emojiData.emoji);
+    setEmojiPickerOpen(null);
+  };
+
+  const getReactionsList = (
+    reactions?: Record<string, string[]>,
+  ): Reaction[] => {
+    if (!reactions) return [];
+    return Object.entries(reactions).map(([emoji, user_ids]) => ({
+      emoji,
+      user_ids,
+      count: user_ids.length,
+    }));
+  };
+
+  const getUserNameById = (userId: string): string => {
+    const message = messages.find((m) => m.user_id === userId);
+    return message?.name || "Unknown User";
   };
 
   return (
@@ -135,6 +253,7 @@ export default function Chat() {
               index === 0 ||
               getDateLabel(msg.created_at) !==
                 getDateLabel(messages[index - 1].created_at);
+            const reactionsList = getReactionsList(msg.reactions);
 
             return (
               <div key={`group-${msg.id}`}>
@@ -222,56 +341,182 @@ export default function Chat() {
                       </div>
                     </div>
 
-                    {isMe && (
-                      <div className="absolute -right-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                        <button
-                          onClick={() =>
-                            setMenuOpen(menuOpen === msg.id ? null : msg.id)
-                          }
-                          className={`p-1.5 rounded ${darkMode ? "hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"} transition-colors cursor-pointer`}
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+                    {/* Reactions */}
+                    {reactionsList.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {reactionsList.map((reaction) => {
+                          const hasReacted = reaction.user_ids.includes(
+                            user?.id || "",
+                          );
+                          const reactorNames =
+                            reaction.user_ids.map(getUserNameById);
+                          const tooltipText = reactorNames.join(", ");
 
-                        {menuOpen === msg.id && (
-                          <div
-                            className={`absolute ${
-                              isLast ? "bottom-8 right-0" : "top-8 right-0"
-                            } w-32 ${darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"} rounded-lg shadow-lg z-20 border overflow-hidden`}
-                          >
+                          return (
                             <button
-                              onClick={() => {
-                                setEditingId(msg.id);
-                                setNewMessage(msg.content);
-                                setMenuOpen(null);
-                              }}
-                              className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
+                              key={reaction.emoji}
+                              onClick={() =>
+                                toggleReaction(msg.id, reaction.emoji)
+                              }
+                              title={tooltipText}
+                              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all cursor-pointer ${
+                                hasReacted
+                                  ? darkMode
+                                    ? "bg-zinc-800 border-zinc-600"
+                                    : "bg-blue-100 border-blue-300"
+                                  : darkMode
+                                    ? "bg-zinc-900 border-zinc-800 hover:bg-zinc-800"
+                                    : "bg-gray-100 border-gray-200 hover:bg-gray-200"
+                              } border`}
                             >
-                              <Edit3
-                                size={14}
+                              <span>{reaction.emoji}</span>
+                              <span
                                 className={
-                                  darkMode ? "text-zinc-400" : "text-gray-700"
+                                  darkMode ? "text-zinc-400" : "text-gray-600"
                                 }
-                              />
-                              <span>Edit</span>
+                              >
+                                {reaction.count}
+                              </span>
                             </button>
-                            <div
-                              className={`h-px ${darkMode ? "bg-zinc-800" : "bg-gray-200"}`}
-                            />
-                            <button
-                              onClick={() => {
-                                deleteMessage(msg.id);
-                                setMenuOpen(null);
-                              }}
-                              className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
-                            >
-                              <Trash2 size={14} />
-                              <span>Delete</span>
-                            </button>
-                          </div>
-                        )}
+                          );
+                        })}
                       </div>
                     )}
+
+                    {/* Action buttons */}
+                    <div
+                      className={`absolute -right-10 top-2 flex flex-col gap-1 transition-opacity duration-200 ${emojiPickerOpen === msg.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                    >
+                      <div className="relative">
+                        <button
+                          ref={(el) => {
+                            if (el) emojiButtonRef.current[msg.id] = el;
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEmojiPickerOpen(
+                              emojiPickerOpen === msg.id ? null : msg.id,
+                            );
+                          }}
+                          className={`p-1.5 rounded ${darkMode ? "hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"} transition-colors cursor-pointer`}
+                        >
+                          <Smile className="w-4 h-4" />
+                        </button>
+
+                        {emojiPickerOpen === msg.id &&
+                          (() => {
+                            const button = emojiButtonRef.current[msg.id];
+                            if (!button) return null;
+
+                            const rect = button.getBoundingClientRect();
+                            const viewportHeight = window.innerHeight;
+                            const viewportWidth = window.innerWidth;
+                            const pickerHeight = 450;
+                            const pickerWidth = 350;
+
+                            let top = rect.bottom + 8;
+                            let left = rect.left - pickerWidth + 40;
+
+                            if (top + pickerHeight > viewportHeight) {
+                              top = rect.top - pickerHeight - 8;
+                            }
+
+                            if (left < 8) {
+                              left = 8;
+                            }
+
+                            if (left + pickerWidth > viewportWidth - 8) {
+                              left = viewportWidth - pickerWidth - 8;
+                            }
+
+                            return (
+                              <div
+                                ref={emojiPickerRef}
+                                className="fixed z-50"
+                                style={{
+                                  top: `${top}px`,
+                                  left: `${left}px`,
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div
+                                  className={`rounded-lg overflow-hidden shadow-2xl ${darkMode ? "ring-1 ring-zinc-800" : "ring-1 ring-gray-200"}`}
+                                >
+                                  <EmojiPicker
+                                    onEmojiClick={(emojiData) =>
+                                      handleEmojiClick(msg.id, emojiData)
+                                    }
+                                    theme={
+                                      (darkMode
+                                        ? Theme.DARK
+                                        : Theme.LIGHT) as Theme
+                                    }
+                                    width={350}
+                                    height={450}
+                                    previewConfig={{ showPreview: false }}
+                                    searchDisabled={true}
+                                    skinTonesDisabled={true}
+                                    emojiStyle={EmojiStyle.GOOGLE}
+                                    lazyLoadEmojis={true}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                      </div>
+
+                      {/* Menu button (only for own messages) */}
+                      {isMe && (
+                        <>
+                          <button
+                            onClick={() =>
+                              setMenuOpen(menuOpen === msg.id ? null : msg.id)
+                            }
+                            className={`p-1.5 rounded ${darkMode ? "hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200" : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"} transition-colors cursor-pointer`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {menuOpen === msg.id && (
+                            <div
+                              className={`absolute ${
+                                isLast ? "bottom-8 right-0" : "top-8 right-0"
+                              } w-32 ${darkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-gray-200"} rounded-lg shadow-lg z-20 border overflow-hidden`}
+                            >
+                              <button
+                                onClick={() => {
+                                  setEditingId(msg.id);
+                                  setNewMessage(msg.content);
+                                  setMenuOpen(null);
+                                }}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
+                              >
+                                <Edit3
+                                  size={14}
+                                  className={
+                                    darkMode ? "text-zinc-400" : "text-gray-700"
+                                  }
+                                />
+                                <span>Edit</span>
+                              </button>
+                              <div
+                                className={`h-px ${darkMode ? "bg-zinc-800" : "bg-gray-200"}`}
+                              />
+                              <button
+                                onClick={() => {
+                                  deleteMessage(msg.id);
+                                  setMenuOpen(null);
+                                }}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 ${darkMode ? "hover:bg-zinc-800 text-white" : "hover:bg-gray-50 text-gray-900"} w-full text-left text-sm transition-colors cursor-pointer`}
+                              >
+                                <Trash2 size={14} />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -283,7 +528,7 @@ export default function Chat() {
         <div
           className={`border-t ${darkMode ? "border-zinc-800 bg-black" : "border-gray-200 bg-white"} px-4 py-4`}
         >
-          <form onSubmit={sendMessage} className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             <div className="flex-1 relative">
               <input
                 type="text"
@@ -293,16 +538,22 @@ export default function Chat() {
                 }
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage(e);
+                  }
+                }}
               />
             </div>
             <button
-              type="submit"
+              onClick={sendMessage}
               disabled={!newMessage.trim()}
               className={`${darkMode ? "bg-white text-black hover:bg-zinc-200" : "bg-black text-white hover:bg-gray-800"} px-5 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm cursor-pointer`}
             >
               {editingId ? "Update" : "Send"}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>
