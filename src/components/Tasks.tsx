@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -46,6 +46,7 @@ const Tasks = () => {
     { id: string; email: string; name?: string; avatar?: string | null }[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Add scrollbar hide styles
@@ -111,6 +112,54 @@ const Tasks = () => {
     fetchTasks();
   }, []);
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && activeTask) {
+        setActiveTask(null);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [activeTask]);
+
+  useEffect(() => {
+    if (!activeTask) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveTaskToDB(activeTask);
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [activeTask]);
+
+  const saveTaskToDB = async (task: Task) => {
+    const status = (Object.entries(columns).find(([_col, tasks]) =>
+      tasks.some((t) => t.id === task.id),
+    )?.[0] || "todo") as keyof ColumnTasks;
+
+    const { error } = await supabase.from("tasks").upsert({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      assigned_to: task.assignedTo ?? null,
+      deadline: task.deadline,
+      subtasks: task.subtasks,
+      status,
+    });
+
+    if (error) {
+      console.error("Error saving task:", error.message);
+    }
+  };
+
   const onDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
 
@@ -159,7 +208,7 @@ const Tasks = () => {
     }
   };
 
-  const addTask = () => {
+  const addTask = async () => {
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: "New Task",
@@ -169,59 +218,28 @@ const Tasks = () => {
       subtasks: [],
       createdAt: new Date().toISOString(),
     };
+
+    const { error } = await supabase.from("tasks").insert({
+      id: newTask.id,
+      title: newTask.title,
+      description: newTask.description,
+      assigned_to: newTask.assignedTo,
+      deadline: newTask.deadline,
+      subtasks: newTask.subtasks,
+      status: "todo",
+    });
+
+    if (error) {
+      console.error("Error creating task:", error.message);
+      return;
+    }
+
     setColumns((prev) => ({
       ...prev,
       todo: [...prev.todo, newTask],
     }));
+
     setActiveTask(newTask);
-  };
-
-  const saveTask = async () => {
-    if (!activeTask) return;
-
-    const status = (Object.entries(columns).find(([_col, tasks]) =>
-      tasks.some((t) => t.id === activeTask.id),
-    )?.[0] || "todo") as keyof ColumnTasks;
-
-    const { data, error } = await supabase
-      .from("tasks")
-      .upsert({
-        id: activeTask.id,
-        title: activeTask.title,
-        description: activeTask.description,
-        assigned_to: activeTask.assignedTo ?? null,
-        deadline: activeTask.deadline,
-        subtasks: activeTask.subtasks,
-        status,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error saving task:", error.message);
-      return;
-    }
-
-    setColumns((prev) => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach((col) => {
-        updated[col as keyof ColumnTasks] = updated[
-          col as keyof ColumnTasks
-        ].filter((t) => t.id !== activeTask.id);
-      });
-      updated[status].push({
-        id: data.id,
-        title: data.title,
-        description: data.description,
-        assignedTo: data.assigned_to,
-        subtasks: data.subtasks || [],
-        deadline: data.deadline,
-        createdAt: data.created_at,
-      });
-      return updated;
-    });
-
-    setActiveTask(null);
   };
 
   const deleteTask = async (taskId: string) => {
@@ -233,7 +251,26 @@ const Tasks = () => {
       });
       return updated;
     });
-    if (activeTask?.id === taskId) setActiveTask(null);
+    if (activeTask?.id === taskId) {
+      setActiveTask(null);
+    }
+  };
+
+  const updateActiveTask = (updates: Partial<Task>) => {
+    if (!activeTask) return;
+
+    const updatedTask = { ...activeTask, ...updates };
+    setActiveTask(updatedTask);
+
+    setColumns((prev) => {
+      const updated = { ...prev };
+      (Object.keys(updated) as (keyof ColumnTasks)[]).forEach((col) => {
+        updated[col] = updated[col].map((t) =>
+          t.id === updatedTask.id ? updatedTask : t,
+        );
+      });
+      return updated;
+    });
   };
 
   const getUserById = (userId: string | null) => {
@@ -590,9 +627,7 @@ const Tasks = () => {
                       : "placeholder-gray-400 text-gray-900"
                   }`}
                   value={activeTask.title}
-                  onChange={(e) =>
-                    setActiveTask({ ...activeTask, title: e.target.value })
-                  }
+                  onChange={(e) => updateActiveTask({ title: e.target.value })}
                   placeholder="Task title..."
                 />
               </div>
@@ -613,10 +648,7 @@ const Tasks = () => {
                     rows={3}
                     value={activeTask.description}
                     onChange={(e) =>
-                      setActiveTask({
-                        ...activeTask,
-                        description: e.target.value,
-                      })
+                      updateActiveTask({ description: e.target.value })
                     }
                     placeholder="Add a description..."
                   />
@@ -637,8 +669,7 @@ const Tasks = () => {
                       }`}
                       value={activeTask.assignedTo ?? ""}
                       onChange={(e) =>
-                        setActiveTask({
-                          ...activeTask,
+                        updateActiveTask({
                           assignedTo:
                             e.target.value === "" ? null : e.target.value,
                         })
@@ -668,10 +699,7 @@ const Tasks = () => {
                       }`}
                       value={activeTask.deadline || ""}
                       onChange={(e) =>
-                        setActiveTask({
-                          ...activeTask,
-                          deadline: e.target.value,
-                        })
+                        updateActiveTask({ deadline: e.target.value })
                       }
                     />
                   </div>
@@ -699,7 +727,7 @@ const Tasks = () => {
                           onClick={() => {
                             const newSubs = [...activeTask.subtasks];
                             newSubs[i].done = !newSubs[i].done;
-                            setActiveTask({ ...activeTask, subtasks: newSubs });
+                            updateActiveTask({ subtasks: newSubs });
                           }}
                           className="flex-shrink-0"
                         >
@@ -728,7 +756,7 @@ const Tasks = () => {
                           onChange={(e) => {
                             const newSubs = [...activeTask.subtasks];
                             newSubs[i].title = e.target.value;
-                            setActiveTask({ ...activeTask, subtasks: newSubs });
+                            updateActiveTask({ subtasks: newSubs });
                           }}
                           placeholder="Subtask title..."
                         />
@@ -737,7 +765,7 @@ const Tasks = () => {
                             const newSubs = activeTask.subtasks.filter(
                               (_, idx) => idx !== i,
                             );
-                            setActiveTask({ ...activeTask, subtasks: newSubs });
+                            updateActiveTask({ subtasks: newSubs });
                           }}
                           className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all duration-200 ${
                             darkMode
@@ -752,8 +780,7 @@ const Tasks = () => {
                   </div>
                   <button
                     onClick={() =>
-                      setActiveTask({
-                        ...activeTask,
+                      updateActiveTask({
                         subtasks: [
                           ...(activeTask.subtasks || []),
                           { id: Date.now().toString(), title: "", done: false },
@@ -768,31 +795,6 @@ const Tasks = () => {
                   >
                     <Plus size={14} />
                     Add subtask
-                  </button>
-                </div>
-
-                <div
-                  className={`flex justify-end gap-2 pt-4 border-t ${darkMode ? "border-zinc-800" : "border-gray-200"}`}
-                >
-                  <button
-                    onClick={() => setActiveTask(null)}
-                    className={`px-4 py-2 rounded-md border transition-all duration-200 font-medium text-sm ${
-                      darkMode
-                        ? "border-zinc-700 text-white hover:bg-zinc-800"
-                        : "border-gray-200 text-gray-900 hover:bg-gray-50"
-                    }`}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveTask}
-                    className={`px-4 py-2 rounded-md transition-all duration-200 font-medium text-sm ${
-                      darkMode
-                        ? "bg-white text-black hover:bg-zinc-200"
-                        : "bg-black text-white hover:bg-gray-800"
-                    }`}
-                  >
-                    Save Task
                   </button>
                 </div>
               </div>
